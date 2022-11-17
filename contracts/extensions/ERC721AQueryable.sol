@@ -37,15 +37,21 @@ abstract contract ERC721AQueryable is ERC721A, IERC721AQueryable {
      * - `burned = false`
      * - `extraData = <Extra data at start of ownership>`
      */
-    function explicitOwnershipOf(uint256 tokenId) public view virtual override returns (TokenOwnership memory) {
-        TokenOwnership memory ownership;
-        if (tokenId < _startTokenId()) return ownership;
-        if (tokenId >= _nextTokenId()) return ownership;
-
-        ownership = _ownershipAt(tokenId);
-        if (ownership.burned) return ownership;
-
-        return _ownershipOf(tokenId);
+    function explicitOwnershipOf(uint256 tokenId)
+        public
+        view
+        virtual
+        override
+        returns (TokenOwnership memory ownership)
+    {
+        if (tokenId >= _startTokenId()) {
+            if (tokenId < _nextTokenId()) {
+                ownership = _ownershipAt(tokenId);
+                if (!ownership.burned) {
+                    ownership = _ownershipOf(tokenId);
+                }
+            }
+        }
     }
 
     /**
@@ -59,14 +65,13 @@ abstract contract ERC721AQueryable is ERC721A, IERC721AQueryable {
         override
         returns (TokenOwnership[] memory)
     {
-        unchecked {
-            uint256 tokenIdsLength = tokenIds.length;
-            TokenOwnership[] memory ownerships = new TokenOwnership[](tokenIdsLength);
-            for (uint256 i; i != tokenIdsLength; ++i) {
-                ownerships[i] = explicitOwnershipOf(tokenIds[i]);
-            }
-            return ownerships;
+        TokenOwnership[] memory ownerships = new TokenOwnership[](tokenIds.length);
+        uint256 i = tokenIds.length;
+        while (i != 0) {
+            --i;
+            ownerships[i] = explicitOwnershipOf(tokenIds[i]);
         }
+        return ownerships;
     }
 
     /**
@@ -88,7 +93,7 @@ abstract contract ERC721AQueryable is ERC721A, IERC721AQueryable {
     ) external view virtual override returns (uint256[] memory) {
         unchecked {
             if (start >= stop) revert InvalidQueryRange();
-            
+
             uint256 stopLimit = _nextTokenId();
             // Set `start = max(start, _startTokenId())`.
             if (start < _startTokenId()) {
@@ -111,7 +116,7 @@ abstract contract ERC721AQueryable is ERC721A, IERC721AQueryable {
                 return tokenIds;
             }
             tokenIds = new uint256[](tokenIdsMaxLength);
-        
+
             // We need to call `explicitOwnershipOf(start)`,
             // because the slot at `start` may not be initialized.
             TokenOwnership memory ownership = explicitOwnershipOf(start);
@@ -124,25 +129,18 @@ abstract contract ERC721AQueryable is ERC721A, IERC721AQueryable {
                 currOwnershipAddr = ownership.addr;
             }
             uint256 tokenIdsIdx;
-            for (;;) {
+            do {
                 ownership = _ownershipAt(start);
                 if (!ownership.burned) {
                     if (ownership.addr != address(0)) {
                         currOwnershipAddr = ownership.addr;
                     }
                     if (currOwnershipAddr == owner) {
-                        // Directly write to the array with assembly to avoid
-                        // the unnecessary bounds checks.
-                        assembly {
-                            mstore(add(add(tokenIds, 0x20), shl(5, tokenIdsIdx)), start)
-                        }
-                        ++tokenIdsIdx;
+                        tokenIds[tokenIdsIdx++] = start;
                     }
                 }
                 ++start;
-                if (start == stop) break;
-                if (tokenIdsIdx == tokenIdsMaxLength) break;
-            }
+            } while (start != stop && tokenIdsIdx != tokenIdsMaxLength);
             // Downsize the array to fit.
             assembly {
                 mstore(tokenIds, tokenIdsIdx)
@@ -167,21 +165,15 @@ abstract contract ERC721AQueryable is ERC721A, IERC721AQueryable {
             address currOwnershipAddr;
             uint256 tokenIdsLength = balanceOf(owner);
             uint256[] memory tokenIds = new uint256[](tokenIdsLength);
-            TokenOwnership memory ownership;
             for (uint256 i = _startTokenId(); tokenIdsIdx != tokenIdsLength; ++i) {
-                ownership = _ownershipAt(i);
+                TokenOwnership memory ownership = _ownershipAt(i);
                 if (!ownership.burned) {
                     if (ownership.addr != address(0)) {
                         currOwnershipAddr = ownership.addr;
                     }
                     if (currOwnershipAddr == owner) {
-                        // Directly write to the array with assembly to avoid
-                        // the unnecessary bounds checks.
-                        assembly {
-                            mstore(add(add(tokenIds, 0x20), shl(5, tokenIdsIdx)), i)
-                        }
-                        ++tokenIdsIdx;
-                    }    
+                        tokenIds[tokenIdsIdx++] = i;
+                    }
                 }
             }
             return tokenIds;
