@@ -105,15 +105,13 @@ abstract contract ERC721AQueryable is ERC721A, IERC721AQueryable {
             }
             uint256[] memory tokenIds;
             uint256 tokenIdsMaxLength = balanceOf(owner);
+            if (tokenIdsMaxLength == 0 || start >= stop) {
+                return tokenIds;
+            }
             // Set `tokenIdsMaxLength = min(balanceOf(owner), stop - start)`,
             // to cater for cases where `balanceOf(owner)` is too big.
-            if (start < stop) {
-                uint256 rangeLength = stop - start;
-                if (rangeLength < tokenIdsMaxLength) {
-                    tokenIdsMaxLength = rangeLength;
-                }
-            } else {
-                return tokenIds;
+            if (stop - start < tokenIdsMaxLength) {
+                tokenIdsMaxLength = stop - start;
             }
             tokenIds = new uint256[](tokenIdsMaxLength);
 
