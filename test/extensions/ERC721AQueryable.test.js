@@ -136,7 +136,7 @@ const createTestSuite = ({ contract, constructorArgs }) =>
             }
           });
 
-          it.only('after a transfer', async function () {
+          it('after a transfer', async function () {
             // Break sequential order by transfering 7th token from owner to addr4
             const tokenIdToTransfer = [offsetted(7)];
             await this.erc721aQueryable.transferFrom(this.owner.address, this.addr4.address, tokenIdToTransfer[0]);
