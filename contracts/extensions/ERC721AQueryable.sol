@@ -100,11 +100,13 @@ abstract contract ERC721AQueryable is ERC721A, IERC721AQueryable {
                 start = _startTokenId();
             }
             // Set `stop = min(stop, stopLimit)`.
-            if (stop > stopLimit) {
+            if (stop >= stopLimit) {
                 stop = stopLimit;
             }
             uint256[] memory tokenIds;
             uint256 tokenIdsMaxLength = balanceOf(owner);
+            // Early retur if the balance is zero, or if the bounded
+            // `start` and `stop` results in an empty array.
             if (tokenIdsMaxLength == 0 || start >= stop) {
                 return tokenIds;
             }
@@ -127,6 +129,8 @@ abstract contract ERC721AQueryable is ERC721A, IERC721AQueryable {
                 currOwnershipAddr = ownership.addr;
             }
             uint256 tokenIdsIdx;
+            // Since we have early returned if `tokenIds` is empty, we can use
+            // a do-while, which is slightly more efficient for this case.
             do {
                 ownership = _ownershipAt(start);
                 if (!ownership.burned) {
